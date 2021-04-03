@@ -72,3 +72,10 @@ wakeup time as a unix timestamp in seconds since epoch (UTC).
 All code is available under the terms and conditions of the AGPL3 license,
 because all the best things in life are free, and want to stay that way.
 For more details please see the LICENSE file.
+
+** Trivia
+
+Within Terry Pratchetts books, the
+[[https://wiki.lspace.org/mediawiki/Dis-organiser][Dis-Organizer]] is a
+personal organizer that can perfom various tasks including (possibly, if all
+works out) reminding its owner of certain tasks. It occasionally works :P
