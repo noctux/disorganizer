@@ -8,8 +8,17 @@ local pwd    = require("posix.pwd")
 local unistd = require("posix.unistd")
 
 -- Configuration
+local RUNUSER = "nobody"
 local MAC_PATTERN = "%x%x:%x%x:%x%x:%x%x:%x%x:%x%x"
 local WAKEUP_DIR  = "/tmp/wolwakeups"
+
+-- Privilege dropping to RUNUSER, to get at least a little bit of security
+local pwentry = pwd.getpwnam(RUNUSER)
+assert(pwentry, "Failed to find pwrecord for " .. RUNUSER)
+local rc, errmsg, _ = unistd.setpid("G", pwentry.pw_gid)
+assert(rc == 0, "Failed to set effective gid to " .. pwentry.pw_gid .. ": " .. (errmsg or "nil"))
+local rc, errmsg, _ = unistd.setpid("U", pwentry.pw_uid)
+assert(rc == 0, "Failed to set effective uid to " .. pwentry.pw_uid .. ": " .. (errmsg or "nil"))
 
 
 
