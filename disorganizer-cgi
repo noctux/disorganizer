@@ -1,0 +1,99 @@
+#!/usr/bin/env lua
+
+local dirent = require("posix.dirent")
+local stat   = require("posix.sys.stat")
+local time   = require("posix.time")
+local errnoc = require("posix.errno")
+local pwd    = require("posix.pwd")
+local unistd = require("posix.unistd")
+
+-- Configuration
+local MAC_PATTERN = "%x%x:%x%x:%x%x:%x%x:%x%x:%x%x"
+local WAKEUP_DIR  = "/tmp/wolwakeups"
+
+
+
+-- Special variant of mkdir that accepts eexist
+function mkdir(path)
+	local status, errstr, errno = stat.mkdir(path)
+	assert(0 == status or errno == errnoc.EEXIST, "Failed to create directory at '" .. path .. "': " .. (errstr or "nil"))
+end
+
+-- From: https://stackoverflow.com/a/28921280 CC-BY-SA 3.0
+function urldecode(s)
+  s = s:gsub('+', ' ')
+       :gsub('%%(%x%x)', function(h)
+                           return string.char(tonumber(h, 16))
+                         end)
+  return s
+end
+
+function parseurl(s)
+  local ans = {}
+  for k,v in string.gmatch(s, '([^&=?]-)=([^&=?]+)' ) do
+    ans[ k ] = urldecode(v)
+  end
+  return ans
+end
+-- /stackoverflow
+
+function http_status(code, message)
+	io.write("Status: " .. code .. " " .. message .. "\r\n")
+end
+
+function http_error(code, message, body)
+	http_status(code, message)
+	io.write("Content-type: text/plain; charset=utf-8\r\n\r\n")
+	if (body) then
+		io.write(body .. "\r\n")
+	else
+		io.write(message .. "\r\n")
+	end
+
+	os.exit(0)
+end
+
+function bad_request(msg)
+	http_error(400, "Bad Request", msg)
+end
+
+function method_not_allowed(msg)
+	http_error(405, "Method not allowed")
+end
+
+
+local requestmethod = os.getenv("REQUEST_METHOD")
+if requestmethod ~= "POST" then
+	method_not_allowed("Expecting POST requests at this endpoint")
+end
+
+local postbody   = io.read("*all")
+-- Strip trailing newlines
+postbody = string.gsub(postbody, "[\r\n]*$", "")
+local postparams = parseurl(postbody)
+
+local timestamp, mac = postparams['timestamp'], postparams['mac']
+
+if not timestamp then
+	bad_request("Mandatory POST-parameter 'timestamp' is missing")
+end
+if not mac then
+	bad_request("Mandatory POST-parameter 'mac' is missing")
+end
+if not string.match(timestamp, "^%d+$") then
+	bad_request("Timestamp " .. timestamp .. " is not a positive integer (timestamp in epoch time)")
+end
+if not string.match(mac, "^" .. MAC_PATTERN .. "$") then
+	bad_request("MAC address " .. mac .. " is not a legal MAC")
+end
+
+-- Write mac to file
+mkdir(WAKEUP_DIR)
+local file = io.open(WAKEUP_DIR .. "/" .. timestamp, "wb")
+file:write(mac)
+file:close()
+
+http_status(200, "OK")
+io.write("Content-type: text/plain; charset=utf-8\r\n\r\n")
+io.write("OK. Scheduled wakup for '" .. mac .. "' at '" .. timestamp ..  "'\r\n")
+os.exit(0)
