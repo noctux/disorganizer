@@ -1,0 +1,68 @@
+* Schedule regular wakeups of your local machines using Wake-On-Lan
+
+I've recently discovered, that my NAS's rtc-clock is only capable of
+scheduling wakeups up to 1 day into the future -- unsuitable for tasks that
+should be scheduled on a week granularity (e.g. regular offsite backups).
+So *disorganizer* was born, two small scripts that allow my NAS to request
+regular, scheduled wakeups from my router using WakeOnLan packages.
+
+Limitations: I'm using a cronjob, so accuracy is limited to minute
+granularity. The script tries to rather wake machines early than late.
+
+I use it to as a simple companion to
+[[https://github.com/languitar/autosuspend][Autosuspend]].
+
+** Prerequisites
+
+An openwrt-router, running uhttpd, with =lua=/=luaposix=.
+
+** Installation
+
+Copy ~disorganizer-cron.lua~ to your device and make it executable: =chmod +x=
+Copy ~disorganizer-cgi~ to uhttpd's cgi-root (default: ~/www/cgi-bin/~), and
+chmod it as well.
+
+Then add a suitable crontab line:
+#+BEGIN_SRC cron
+# /etc/crontab/nobody
+* * * * * /path/to/disorganizer-cron.lua 60 /tmp/wolwakeups
+#+END_SRC
+
+Then reload cron: =/etc/init.d/cron restart=
+
+** Configuration
+
+The script has minimal configuration, which spans across ~disorganzier-cgi~
+and the crontab:
+
+#+BEGIN_SRC lua
+-- disorganizer-cgi:
+-- We drop permissions. By default, the cgi runs as root, but nobody seems to
+-- be a saner choice... If you want, you can use a different user here
+local RUNUSER = "nobody"
+-- Directory to store the wakeup events
+local WAKEUP_DIR  = "/tmp/wolwakeups"
+#+END_SRC
+
+Cron and CGI should run as the same user, the =WAKEUP_DIR= is passed as the
+second parameter to the cron-script.
+#+BEGIN_SRC cron
+* * * * * /path/to/disorganizer-cron.lua 60 /tmp/wolwakeups
+#+END_SRC
+
+Beyond the directory, the cron-script receives its scheduled period (as
+the first parameter, in seconds, so as the example schedules with minute
+granularity it is 60 seconds per period) to make sure that it can wake up all
+pending tasks early.
+
+** Scheduling a wakeup
+
+Wakeup requests can then be scheduled using HTTP-POST requests, for example
+using this curl request:
+
+#+BEGIN_SRC bash
+curl --data "mac=XX:XX:XX:XX:XX:XX" --data "timestamp=$(date '+%s' -d  '+ 2 minutes')" http://192.168.1.1/cgi-bin/disorganizer-cgi
+#+END_SRC
+
+Parameter =mac= is the Mac-address to wake, =timestamp= is the scheduled
+wakeup time as a unix timestamp in seconds since epoch (UTC).
