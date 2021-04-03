@@ -66,3 +66,9 @@ curl --data "mac=XX:XX:XX:XX:XX:XX" --data "timestamp=$(date '+%s' -d  '+ 2 minu
 
 Parameter =mac= is the Mac-address to wake, =timestamp= is the scheduled
 wakeup time as a unix timestamp in seconds since epoch (UTC).
+
+** License
+
+All code is available under the terms and conditions of the AGPL3 license,
+because all the best things in life are free, and want to stay that way.
+For more details please see the LICENSE file.
